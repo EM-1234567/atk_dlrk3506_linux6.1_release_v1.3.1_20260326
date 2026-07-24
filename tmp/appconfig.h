@@ -1,0 +1,125 @@
+#define ENABLE_AI_MODE_HOLD 1
+// CONFIG_T5AI_BOARD is not set
+// CONFIG_T5AI_BOARD_EYES is not set
+// CONFIG_T5AI_BOARD_EVB is not set
+// CONFIG_T5AI_BOARD_EVB_PRO is not set
+// CONFIG_T5AI_BOARD_ROBOT is not set
+// CONFIG_T5AI_BOARD_DESKTOP is not set
+// CONFIG_T2AI_BOARD is not set
+// CONFIG_LE270AI_BOARD is not set
+#define RK3506B_BOARD 1
+
+//
+// Pin Configuration
+//
+#define TUYA_AI_TOY_AUDIO_TRIGGER_PIN_NUM 64
+#define TUYA_AI_TOY_SPK_EN_PIN_NUM 26
+#define TUYA_AI_TOY_LED_PIN_NUM 64
+#define TUYA_AI_TOY_NET_PIN_NUM 64
+// CONFIG_DEVICE_POWER_CONTROL is not set
+// end of Pin Configuration
+
+//
+// Display Configuration
+//
+#define TUYA_LCD_IC_NAME_STR ""
+#define TUYA_LCD_WIDTH_VAL 0
+#define TUYA_LCD_HEIGHT_VAL 0
+#define LCD_FPS_VAL 10
+#define TUYA_LCD_ROTATION_VAL 0
+// end of Display Configuration
+
+// CONFIG_ENABLE_BATTERY is not set
+
+#define ENABLE_TUYA_TOOLKITS 1
+// CONFIG_ENABLE_TOOLKITS_CAMERA is not set
+#define ENABLE_TOOLKITS_TM 1
+#define ENABLE_TOOLKITS_CONTROL 1
+#define ENABLE_TOOLKITS_PLAYBACK 1
+// CONFIG_ENABLE_TOOLKITS_IMM is not set
+// CONFIG_ENABLE_TOOLKITS_SOCIAL is not set
+
+// CONFIG_ENABLE_TUYA_UI is not set
+
+//
+// Audio Configuration
+//
+
+//
+// Audio Input
+//
+
+//
+// --- Source ---
+//
+// CONFIG_USING_UART_AUDIO_INPUT is not set
+#define USING_BOARD_AUDIO_INPUT 1
+#define INPUT_BOARD_STACK_SIZE 2560
+
+//
+// --- Frontend ---
+//
+#define USING_TUYA_AUDIO_FRONTEND 1
+// CONFIG_USING_3RD_AUDIO_FRONTEND is not set
+
+//
+// --- Encoder ---
+//
+// CONFIG_ENABLE_APP_OPUS_ENCODER is not set
+// CONFIG_ENABLE_APP_SPEEX_ENCODER is not set
+// end of Audio Input
+
+//
+// Audio Output
+//
+
+//
+// --- Target ---
+//
+// CONFIG_USING_UART_AUDIO_OUTPUT is not set
+#define USING_BOARD_AUDIO_OUTPUT 1
+
+//
+// --- Decoder / Player ---
+//
+// CONFIG_AI_PLAYER_LITE is not set
+// CONFIG_AI_PLAYER_DECODER_OPUS_ENABLE is not set
+// CONFIG_AI_PLAYER_DECODER_OPUS_FRAME_SIZE is not set
+// CONFIG_AI_PLAYER_DECODER_OPUS_KBPS is not set
+// CONFIG_AI_PLAYER_DECODER_OGGOPUS_ENABLE is not set
+// end of Audio Output
+
+// CONFIG_CODEC_BENCH_TEST is not set
+// end of Audio Configuration
+
+// CONFIG_ENABLE_CELLULAR_DONGLE is not set
+#define AI_CHAT_DEFAULT_HOLD 1
+// CONFIG_AI_CHAT_DEFAULT_ONESHOT is not set
+// CONFIG_AI_CHAT_DEFAULT_WAKEUP is not set
+// CONFIG_AI_CHAT_DEFAULT_FREE is not set
+#define TUYA_AI_CHAT_DEFAULT_MODE 0
+
+//
+// Device Defaults
+//
+#define TY_SPK_DEFAULT_VOL 70
+// CONFIG_ENABLE_AUDIO_ANALYSIS is not set
+// CONFIG_ENABLE_APP_AI_MONITOR is not set
+// CONFIG_ENABLE_CLOUD_ALERT is not set
+
+#define TY_AI_DEFAULT_LANG 1
+// CONFIG_ENABLE_APP_JOYINSIDE is not set
+// end of Device Defaults
+
+//
+// AI Agent Scode Configuration
+//
+#define AI_AGENT_SCODE_PRESET_DEFAULT 1
+// end of AI Agent Scode Configuration
+
+
+// Resolved scode strings (DEFAULT preset; conf2h.py does not derive them)
+#define AI_AGENT_SCODE_CHAT ""
+#define AI_AGENT_SCODE_TRANSLATE "asr-llm-tts"
+#define AI_AGENT_SCODE_PICTURE ""
+#define AI_AGENT_SCODE_DETECTION ""
