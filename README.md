@@ -1,45 +1,46 @@
 # tuyaos_demo_wukong_ai (RK3506B port)
 
 App **source + vendor platform both live here** (`atk/app/tuyaos_demo_wukong_ai/`).
-They build for ATK-DLRK3506B (32-bit armhf) via the TuyaOS framework, reached
-through two symlinks:
+It builds **self-contained** for ATK-DLRK3506B (32-bit armhf) — no external
+TuyaOS tree is needed. SDK headers (`include/`), libs (`libs/libtuyaos.a`),
+the armhf toolchain (`vendor/.../toolchain`) and the TKL adapter source
+(`vendor/.../tuyaos_adapter/src`) are all in this directory.
 
-```
-../../tuya_os_sdk/RK3506B_TuyaOS-3.14.0/software/TuyaOS/apps/tuyaos_demo_wukong_ai
-        └── symlink -> this directory            (app source)
-../../tuya_os_sdk/RK3506B_TuyaOS-3.14.0/software/TuyaOS/vendor/gcc-arm-10.3-2021.07-x86_64-arm-none-linux-gnueabihf
-        └── symlink -> this directory/vendor/gcc-arm-10.3-2021.07-x86_64-arm-none-linux-gnueabihf   (vendor platform)
-```
-
-The vendor's own `Makefile` was self-locating (`ROOT_DIR=$(abspath ../../../)`
-+ `-include ../../../build/build_param` + inherited `CXX`), which resolves to
-the **physical atk path** through the symlink and breaks the link. So that
-Makefile (here, under `vendor/.../tuyaos/Makefile`) is patched to hardcode the
-TuyaOS root and the armhf cross-toolchain (`ROOT_DIR`, `-include`, `CC`, `CXX`).
+`apps/` is **flat** — app source sits directly under `apps/` (not under
+`apps/<APP_NAME>/`). The build system is patched to match:
+`scripts/Makefile`, `scripts/mk/app.mk`, `apps/local.mk`, `build/build_param`
+and `vendor/.../tuyaos/Makefile` resolve every path to this repo (the former
+`apps/$(APP_NAME)` becomes `apps`, and the old external TuyaOS-tree roots now
+point at this app dir). Each patched file keeps an
+`.orig` backup.
 
 ## Layout
 
 ```
 app/tuyaos_demo_wukong_ai/
-  src/, local.mk, CMakeLists.txt …            app source (RK3506B board, creds, etc.)
-  vendor/gcc-arm-10.3-…-gnueabihf/             vendor platform (relocated from TuyaOS tree)
-    tuyaos/tuyaos_adapter/src/tkl_*.c          TKL adapter — incl. my WiFi/BT/flash/stubs adaptations
-    tuyaos/Makefile                            PATCHED: ROOT_DIR + CC/CXX hardcoded (see above)
-    toolchain/                                 armhf gcc (~1.6 GB, re-downloadable)
-  build_rk3506b.sh                             build entry (run from here)
-  output/tuyaos_demo_wukong_ai_1.0.55/         produced binary
+  apps/                                         app source (flat): src/, build/, include/, local.mk, CMakeLists.txt
+    src/boards/RK3506B_BOARD/                   RK3506B board
+  include/, libs/                               SDK headers + libtuyaos.a
+  vendor/gcc-arm-10.3-…-gnueabihf/
+    toolchain/                                  armhf gcc (must be fully extracted — cc1 under libexec/gcc/.../)
+    tuyaos/tuyaos_adapter/src/tkl_*.c           TKL adapter (WiFi/BT/flash/stubs)
+    tuyaos/Makefile                             PATCHED: TUYAOS_ROOT/CXX -> this repo
+  build/, scripts/                              build config + xmake framework
+  build_rk3506b.sh                              build entry (run from here)
+  apps/output/tuyaos_demo_wukong_ai_1.0.55/     produced binary
 ```
 
 ## Build
 
 ```
 cd app/tuyaos_demo_wukong_ai
-./build_rk3506b.sh            # -> output/tuyaos_demo_wukong_ai_1.0.55/tuyaos_demo_wukong_ai
+./build_rk3506b.sh            # -> apps/output/tuyaos_demo_wukong_ai_1.0.55/tuyaos_demo_wukong_ai
 ```
 
-`build_rk3506b.sh` runs `build_app.sh` in the TuyaOS tree (which compiles THIS
-source via the symlink). The vendor platform (toolchain + internal headers +
-`libtuyaos.a`) is downloaded once into `tuya_os_sdk/.../TuyaOS/vendor/` (~373 MB).
+`build_rk3506b.sh` runs `make -f scripts/Makefile app_by_name` in this dir
+(compiles `apps/src` + the vendor adapter, then links via
+`vendor/.../tuyaos/Makefile` against the buildroot sysroot +
+`-ldbus-1 -lglib-2.0 -lbluetooth`).
 
 ## Stage into the image + autostart
 
@@ -47,9 +48,9 @@ After a successful build, copy the binary into the rootfs overlay and rebuild
 the image:
 
 ```
-cp output/tuyaos_demo_wukong_ai_1.0.55/tuyaos_demo_wukong_ai \
+cp apps/output/tuyaos_demo_wukong_ai_1.0.55/tuyaos_demo_wukong_ai \
    ../../buildroot/board/alientek/atk-dlrk3506/fs-overlay/usr/bin/
-./build.sh        # at SDK root, then flash
+cd ../../.. && make buildroot && make updateimg   # then flash output/firmware/update.img
 ```
 
 Boot autostart is already wired:
@@ -58,11 +59,11 @@ Boot autostart is already wired:
 
 ## What's in this port
 
-- `src/boards/RK3506B_BOARD/` — RK3506B board
-- `build/appconfig/RK3506B_BOARD` (+ active `build/tuya_app.config`)
-- `local.mk`, `CMakeLists.txt` — `CONFIG_RK3506B_BOARD` wiring
-- `src/tuya_app_main.c` — PID/UUID/AUTHKEY (software auth)
-- `src/tuya_ai_toy.c` — `tkl_wakeup.h` guarded under `ENABLE_LOW_POWER`
+- `apps/src/boards/RK3506B_BOARD/` — RK3506B board
+- `apps/build/appconfig/RK3506B_BOARD` (+ active `apps/build/tuya_app.config`)
+- `apps/local.mk`, `apps/CMakeLists.txt` — `CONFIG_RK3506B_BOARD` wiring
+- `apps/src/tuya_app_main.c` — PID/UUID/AUTHKEY (software auth)
+- `apps/src/tuya_ai_toy.c` — `tkl_wakeup.h` guarded under `ENABLE_LOW_POWER`
 - TKL adaptation (WiFi/BT/flash/stubs) in the vendor adapter — see
-  `PORTING_RK3506B.md` (in the symlinked TuyaOS app dir) for the full record,
-  including runtime bring-up notes (Wi-Fi interface, wpa_supplicant, provisioning).
+  `PORTING_RK3506B.md` for the full record, including runtime bring-up notes
+  (Wi-Fi interface, wpa_supplicant, provisioning).

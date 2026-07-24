@@ -21,7 +21,7 @@ BUILD_SHARED=
 SDK_ID=tuyaos_demo_wukong_ai_1.0.55_gcc-arm-10.3-2021.07-x86_64-arm-none-linux-gnueabihf
 
 
-ROOT_DIR=/home/swimming/share/RK3506B_WUKONG/RK3506B_TuyaOS-3.14.0/software/TuyaOS
+ROOT_DIR=/home/swimming/share/RK3506B/atk_dlrk3506_linux6.1_release_v1.3.1_20260326/app/tuyaos_demo_wukong_ai
 OUTPUT_DIR=$(ROOT_DIR)/output/$(TARGET_PLATFORM)_$(PROJECT_NAME)
 OUTPUT_DIR_INC=$(OUTPUT_DIR)/include
 OUTPUT_DIR_STATIC_LIB=$(OUTPUT_DIR)/static/lib
@@ -30,8 +30,8 @@ OUTPUT_DIR_STATIC_OBJS=$(OUTPUT_DIR)/static/objs
 OUTPUT_DIR_SHARED_OBJS=$(OUTPUT_DIR)/shared/objs
 
 
-COMPILE_PREX = /home/swimming/share/RK3506B_WUKONG/RK3506B_TuyaOS-3.14.0/software/TuyaOS/vendor/gcc-arm-10.3-2021.07-x86_64-arm-none-linux-gnueabihf/tuyaos/../toolchain/gcc-arm-10.3-2021.07-x86_64-arm-none-linux-gnueabihf/bin/arm-none-linux-gnueabihf-
-TUYAOS_BUILD_PATH = /home/swimming/share/RK3506B_WUKONG/RK3506B_TuyaOS-3.14.0/software/TuyaOS/vendor/gcc-arm-10.3-2021.07-x86_64-arm-none-linux-gnueabihf/tuyaos
+COMPILE_PREX = /home/swimming/share/RK3506B/atk_dlrk3506_linux6.1_release_v1.3.1_20260326/app/tuyaos_demo_wukong_ai/vendor/gcc-arm-10.3-2021.07-x86_64-arm-none-linux-gnueabihf/tuyaos/../toolchain/gcc-arm-10.3-2021.07-x86_64-arm-none-linux-gnueabihf/bin/arm-none-linux-gnueabihf-
+TUYAOS_BUILD_PATH = /home/swimming/share/RK3506B/atk_dlrk3506_linux6.1_release_v1.3.1_20260326/app/tuyaos_demo_wukong_ai/vendor/gcc-arm-10.3-2021.07-x86_64-arm-none-linux-gnueabihf/tuyaos
 AR = $(COMPILE_PREX)ar
 CC = $(COMPILE_PREX)gcc
 NM = $(COMPILE_PREX)nm

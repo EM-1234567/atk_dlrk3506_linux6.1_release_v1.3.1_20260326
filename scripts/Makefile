@@ -14,7 +14,7 @@ include $(_XMAKE_DIR)/definitions.mk
 ifeq ($(APP_NAME),)  # sdk build
 -include build/tuya_iot.config
 else  # app build
--include apps/$(APP_NAME)/build/tuya_app.config
+-include apps/build/tuya_app.config
 endif
 -include vendor/$(TARGET_PLATFORM)/tuyaos/tuyaos_kernel.config
 
@@ -33,7 +33,7 @@ CXXFLAGS += $(TUYA_PLATFORM_CXXFLAGS)
 ifeq ($(APP_NAME),)  # sdk build
 -include $(shell find adapter components  -name local.mk 2>/dev/null)
 else  # app build
--include apps/$(APP_NAME)/local.mk
+-include apps/local.mk
 -include $(shell find application_components application_drivers -name local.mk 2>/dev/null)
 endif
 

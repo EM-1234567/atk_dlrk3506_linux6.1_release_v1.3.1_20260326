@@ -4,7 +4,7 @@
 #       - ROOT_DIR = $(abspath ../../../)  -> atk (no libs/)            => cannot find -ltuyaos
 #       - -include ../../../build/build_param (skipped) + inherited CXX lost => host g++ link
 #     So hardcode the TuyaOS root and the armhf cross-toolchain here.
-TUYAOS_ROOT := /home/swimming/share/RK3506B/tuya_os_sdk/RK3506B_TuyaOS-3.14.0/software/TuyaOS
+TUYAOS_ROOT := /home/swimming/share/RK3506B/atk_dlrk3506_linux6.1_release_v1.3.1_20260326/app/tuyaos_demo_wukong_ai
 TUYA_TC_BIN := $(TUYAOS_ROOT)/vendor/gcc-arm-10.3-2021.07-x86_64-arm-none-linux-gnueabihf/toolchain/gcc-arm-10.3-2021.07-x86_64-arm-none-linux-gnueabihf/bin
 ROOT_DIR ?= $(TUYAOS_ROOT)
 -include $(TUYAOS_ROOT)/build/build_param

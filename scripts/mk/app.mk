@@ -1,7 +1,7 @@
 ############################################################
 # 基本变量
 ############################################################
-APP_PROJ_PATH := $(ROOT_DIR)/apps/$(APP_NAME)
+APP_PROJ_PATH := $(ROOT_DIR)/apps
 CATEGORY_PROJ_NAME := $(notdir $(ROOT_DIR))
 # os.mk
 STATIC_OBJS_DIR ?= $(call static-objects-dir)
@@ -13,7 +13,7 @@ LIB_DIR_OUT ?= $(ROOT_DIR)/libs
 ############################################################
 # 生成目标文件列表
 ifneq ($(APP_NAME),)
-APP_STATIC_OBJS_DIRS := $(STATIC_OBJS_DIR)/apps/$(APP_NAME)
+APP_STATIC_OBJS_DIRS := $(STATIC_OBJS_DIR)/apps
 APP_LIB := $(OUTPUT_DIR)/lib/lib${APP_NAME}
 endif
 app_static:
@@ -79,8 +79,8 @@ app:
 		_app_name=`sh ./scripts/get_sub_dir.sh apps`;        \
 	fi;\
 	if [ -z "$${_app_version}" ]; then \
-		cd ./apps/$${_app_name}; \
-		_app_version=`sh ../../scripts/get_ver_tag.sh`;        \
+		cd ./apps; \
+		_app_version=`sh ../scripts/get_ver_tag.sh`;        \
 		cd -; \
 	fi; \
 	$(MAKE) app_by_name APP_NAME=$${_app_name} APP_VER=$${_app_version}
@@ -114,7 +114,7 @@ app_files:
 	 fi
 
 	# 复制应用组件，包括源码，文档，local.mk等
-	@cp ./apps/$(APP_NAME)/* $(APP_FILES_DIR)/ -rf
+	@cp ./apps/* $(APP_FILES_DIR)/ -rf
 	
 	# 复制闭源头文件
 	@mkdir -p $(APP_FILES_DIR)/include 
@@ -194,14 +194,14 @@ app_by_name:
 	@echo "====== build app($(APP_NAME)) begin ======="
 	
 	# 开始编译app
-	@mkdir -p apps/$(APP_NAME)/output 2>/dev/null
+	@mkdir -p apps/output 2>/dev/null
 	@if [ -e $(TUYAOS_BUILD_PATH)/build_path ]; then \
 		. $(TUYAOS_BUILD_PATH)/build_path; \
 	fi; \
 	_demos=$(APP_NAME);	\
-	_app_path=apps/$${_demos};	\
+	_app_path=apps;	\
 		echo $${_app_path};	\
-		cd ./apps/$${_demos}/; \
+		cd ./apps/; \
 		if [ -f build.sh ]; then	\
 			sh ./build.sh $${_demos} $(USER_SW_VER) $(TARGET_PLATFORM) $${_app_path} $(USER_CMD);	\
 		elif [ -f Makefile -o -f makefile ]; then	\
@@ -227,9 +227,9 @@ app_clean_by_name:
 		. $(TUYAOS_BUILD_PATH)/build_path; \
 	fi; \
 	_demos=$(APP_NAME);	\
-	_app_path=apps/$${_demos};	\
+	_app_path=apps;	\
 		echo $${_app_path};	\
-		cd ./apps/$${_demos}/; \
+		cd ./apps/; \
 		if [ -f build.sh ]; then	\
 			sh ./build.sh $${_demos} $(USER_SW_VER) $(TARGET_PLATFORM) $${_app_path} $(USER_CMD);	\
 		elif [ -f Makefile -o -f makefile ]; then	\

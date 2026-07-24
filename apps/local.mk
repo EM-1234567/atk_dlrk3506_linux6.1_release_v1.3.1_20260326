@@ -6,7 +6,7 @@ LOCAL_PATH := $(call my-dir)
 # 清除 LOCAL_xxx 变量
 include $(CLEAR_VARS)
 -include $(LOCAL_PATH)/build/tuya_app.config
--include $(LOCAL_PATH)/../../build/tuya_iot.config
+-include $(LOCAL_PATH)/../build/tuya_iot.config
 
 # 当前模块名
 LOCAL_MODULE := $(notdir $(LOCAL_PATH))
