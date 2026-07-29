@@ -88,7 +88,7 @@ void tuya_bluez_le_register_connect_event(void (*cb)(int status));
 /**
  * @brief register write request event callback
  */
-void tuya_bluez_le_register_write_req_event(void (*cb)(uint16_t uuid, uint8_t *data, uint8_t len));
+void tuya_bluez_le_register_write_req_event(void (*cb)(uint16_t uuid, uint8_t *data, uint16_t len));
 
 #ifdef __cplusplus
 }

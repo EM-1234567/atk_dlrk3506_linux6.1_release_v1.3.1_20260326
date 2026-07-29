@@ -7,7 +7,8 @@
 #include "tuya_bluez_api.h"
 #include "tuya_bluez_compat.h"
 
-#define BLE_CONN_HANDLE 0xFD50
+/* Doc sample uses a fixed connection handle; keep char handles as UUIDs. */
+#define BLE_CONN_HANDLE 0x0001
 
 typedef struct {
     UINT16_T uuid;
@@ -19,16 +20,15 @@ STATIC TKL_BLE_GAP_EVT_FUNC_CB __gap_evt_cb   = NULL;
 STATIC TKL_BLE_GATT_EVT_FUNC_CB __gatt_evt_cb = NULL;
 
 STATIC BOOL_T g_connected          = FALSE;
+STATIC BOOL_T g_stack_inited       = FALSE;
 STATIC P_QUEUE_CLASS g_cache_queue = NULL;
 static pthread_mutex_t g_cache_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-static USHORT_T tuya_conn_handle = 0;
-
-STATIC VOID __gatt_write_request_event_cb(UINT16_T uuid, UINT8_T *data, UINT8_T len)
+STATIC VOID __gatt_write_request_event_cb(UINT16_T uuid, UINT8_T *data, UINT16_T len)
 {
     BLE_CACHE_DATA_T *cache_data = NULL;
 
-    PR_DEBUG("recv write request, uuid: 0x%04x, len: %d", uuid, len);
+    PR_INFO("recv write request, uuid: 0x%04x, len: %u", uuid, (UINT_T)len);
 
     /**
      * BlueZ uses D-BUS for inter-process communication. Data may arrive
@@ -53,15 +53,16 @@ STATIC VOID __gatt_write_request_event_cb(UINT16_T uuid, UINT8_T *data, UINT8_T 
     TKL_BLE_GATT_PARAMS_EVT_T event;
     memset(&event, 0, SIZEOF(TKL_BLE_GATT_PARAMS_EVT_T));
 
-    event.result                                = 0;
-    event.type                                  = TKL_BLE_GATT_EVT_WRITE_REQ;
-    event.conn_handle                           = tuya_conn_handle;
-    event.gatt_event.write_report.char_handle   = uuid;
+    event.result = 0;
+    event.type = TKL_BLE_GATT_EVT_WRITE_REQ;
+    event.conn_handle = BLE_CONN_HANDLE;
+    event.gatt_event.write_report.char_handle = uuid;
     event.gatt_event.write_report.report.p_data = data;
     event.gatt_event.write_report.report.length = len;
 
-    if (__gatt_evt_cb)
+    if (__gatt_evt_cb) {
         __gatt_evt_cb(&event);
+    }
 }
 
 STATIC VOID __gap_connect_event_cb(INT_T status)
@@ -78,7 +79,7 @@ STATIC VOID __gap_connect_event_cb(INT_T status)
     } else {
         event.type = TKL_BLE_GAP_EVT_DISCONNECT;
     }
-    event.conn_handle            = tuya_conn_handle;
+    event.conn_handle = BLE_CONN_HANDLE;
     event.gap_event.connect.role = TKL_BLE_ROLE_SERVER;
 
     if (__gap_evt_cb) {
@@ -110,23 +111,30 @@ STATIC VOID __gap_connect_event_cb(INT_T status)
  * Notify SDK that BLE stack initialization is complete.
  * Without this, SDK will not start advertising.
  */
+/**
+ * @brief Notify SDK that BLE stack init is done (WiFi/AI SDK needs this to start adv)
+ * @return none
+ * @note Official gateway sample omits this; Wukong WiFi SDK requires STACK_INIT.
+ */
 STATIC VOID __gap_init_event_cb(VOID)
 {
     TKL_BLE_GAP_PARAMS_EVT_T event;
-    memset(&event, 0, SIZEOF(TKL_BLE_GAP_PARAMS_EVT_T));
 
-    event.result                 = 0;
-    event.type                   = TKL_BLE_EVT_STACK_INIT;
-    event.conn_handle            = tuya_conn_handle;
-    event.gap_event.connect.role = TKL_BLE_ROLE_SERVER;
-
-    if (__gap_evt_cb) {
-        __gap_evt_cb(&event);
+    if (__gap_evt_cb == NULL) {
+        return;
     }
+
+    memset(&event, 0, SIZEOF(TKL_BLE_GAP_PARAMS_EVT_T));
+    event.result = 0;
+    event.type = TKL_BLE_EVT_STACK_INIT;
+    event.conn_handle = BLE_CONN_HANDLE;
+    event.gap_event.connect.role = TKL_BLE_ROLE_SERVER;
+    __gap_evt_cb(&event);
 }
 
 OPERATE_RET tkl_ble_stack_init(UCHAR_T role)
 {
+    (void)role;
     PR_INFO("tkl_ble_stack_init");
 
     g_cache_queue = CreateQueueObj(32, SIZEOF(BLE_CACHE_DATA_T));
@@ -139,6 +147,8 @@ OPERATE_RET tkl_ble_stack_init(UCHAR_T role)
     tuya_bluez_le_register_connect_event(__gap_connect_event_cb);
     tuya_bluez_le_register_write_req_event(__gatt_write_request_event_cb);
 
+    g_stack_inited = TRUE;
+    /* If GAP callback already registered, deliver STACK_INIT now. */
     __gap_init_event_cb();
 
     return OPRT_OK;
@@ -148,6 +158,13 @@ OPERATE_RET tkl_ble_gap_callback_register(CONST TKL_BLE_GAP_EVT_FUNC_CB gap_evt)
 {
     PR_INFO("tkl_ble_gap_callback_register");
     __gap_evt_cb = gap_evt;
+    /*
+     * SDK may register callbacks after stack_init. Official gateway sample
+     * does not use STACK_INIT; WiFi SDK does — deliver it when callback arrives.
+     */
+    if (g_stack_inited) {
+        __gap_init_event_cb();
+    }
     return OPRT_OK;
 }
 
@@ -160,6 +177,9 @@ OPERATE_RET tkl_ble_gatt_callback_register(CONST TKL_BLE_GATT_EVT_FUNC_CB gatt_e
 
 OPERATE_RET tkl_ble_gap_adv_start(TKL_BLE_GAP_ADV_PARAMS_T CONST *p_adv_params)
 {
+    INT_T ret = 0;
+    le_set_adv_params_t adv_param;
+
     PR_INFO("tkl_ble_gap_adv_start");
 
     if (p_adv_params == NULL) {
@@ -167,37 +187,87 @@ OPERATE_RET tkl_ble_gap_adv_start(TKL_BLE_GAP_ADV_PARAMS_T CONST *p_adv_params)
     }
 
     /*
-     * BLE coexists with SoftAP on RTL8733BU: BLE is an independent netcfg
-     * channel (driven by tuya_enable_ble_netcfg), while WF_START_AP_ONLY keeps
-     * WiFi provisioning on SoftAP (SmartLife-xxxx). WiFi(SDIO) and BT(UART) are
-     * separate buses, so both can run in parallel; the App picks either path.
+     * BLE coexists with SoftAP on RTL8733BU USB combo: BLE is an independent
+     * netcfg channel (tuya_enable_ble_netcfg), while SoftAP (SmartLife-xxxx)
+     * remains available. App may use either path.
      */
-    le_set_adv_params_t adv_param;
     memset(&adv_param, 0, sizeof(adv_param));
-    adv_param.advtype      = p_adv_params->adv_type;
+    adv_param.advtype = p_adv_params->adv_type;
     adv_param.min_interval = p_adv_params->adv_interval_min;
     adv_param.max_interval = p_adv_params->adv_interval_max;
 
-    tuya_bluez_le_set_adv_params(&adv_param);
-    tuya_bluez_le_set_adv_enable(1);
+    ret = tuya_bluez_le_set_adv_params(&adv_param);
+    if (ret != LE_SUCCESS) {
+        PR_ERR("set adv params failed: %d", ret);
+        return OPRT_COM_ERROR;
+    }
+
+    ret = tuya_bluez_le_set_adv_enable(1);
+    if (ret != LE_SUCCESS) {
+        PR_ERR("set adv enable failed: %d", ret);
+        return OPRT_COM_ERROR;
+    }
 
     return OPRT_OK;
 }
 
 OPERATE_RET tkl_ble_gap_adv_stop(VOID)
 {
+    INT_T ret = 0;
+
     PR_INFO("tkl_ble_gap_adv_stop");
-    tuya_bluez_le_set_adv_enable(0);
+    ret = tuya_bluez_le_set_adv_enable(0);
+    if (ret != LE_SUCCESS) {
+        PR_ERR("set adv disable failed: %d", ret);
+        return OPRT_COM_ERROR;
+    }
     return OPRT_OK;
+}
+
+/**
+ * @brief Format TKL UUID to string for BlueZ GattCharacteristic1.UUID
+ * @param[in] uuid TKL UUID (16/32/128, 128-bit is Little-Endian)
+ * @param[out] out output buffer
+ * @param[in] out_len buffer length
+ * @return none
+ * @note Tuya BLE netcfg chars must be published as
+ *       00000001/02/03-0000-1001-8001-00805f9b07d0 (NOT Bluetooth SIG base).
+ */
+STATIC VOID __tkl_uuid_to_str(CONST TKL_BLE_UUID_T *uuid, CHAR_T *out, SIZE_T out_len)
+{
+    CONST UCHAR_T *u = NULL;
+
+    if ((uuid == NULL) || (out == NULL) || (out_len == 0)) {
+        return;
+    }
+    if (uuid->uuid_type == TKL_BLE_UUID_TYPE_16) {
+        snprintf(out, out_len, "%04x", uuid->uuid.uuid16);
+        return;
+    }
+    if (uuid->uuid_type == TKL_BLE_UUID_TYPE_32) {
+        snprintf(out, out_len, "%08x", uuid->uuid.uuid32);
+        return;
+    }
+    /* Little-Endian uuid128 -> dashed string (MSB first) */
+    u = uuid->uuid.uuid128;
+    snprintf(out, out_len,
+             "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+             u[15], u[14], u[13], u[12], u[11], u[10], u[9], u[8], u[7], u[6], u[5], u[4], u[3],
+             u[2], u[1], u[0]);
 }
 
 /**
  * @brief Pick a 16-bit handle used by BlueZ write/notify callback matching
  * @param[in] uuid TKL UUID
  * @return 16-bit handle value
+ * @note For Tuya custom 128-bit UUID (...00805f9b07d0), handle is time_low
+ *       low 16 bits (0x0001 write / 0x0002 notify / 0x0003 read). Do NOT use
+ *       uuid128[0..1] which is the company suffix 0x07d0 for all three chars.
  */
 STATIC USHORT_T __tkl_uuid_to_handle(CONST TKL_BLE_UUID_T *uuid)
 {
+    CONST UCHAR_T *u = NULL;
+
     if (uuid == NULL) {
         return 0;
     }
@@ -207,18 +277,41 @@ STATIC USHORT_T __tkl_uuid_to_handle(CONST TKL_BLE_UUID_T *uuid)
     if (uuid->uuid_type == TKL_BLE_UUID_TYPE_32) {
         return (USHORT_T)(uuid->uuid.uuid32 & 0xFFFF);
     }
-    /* LE uuid128: bytes[1]<<8 | bytes[0] commonly holds the 16-bit alias */
-    return (USHORT_T)(uuid->uuid.uuid128[0] | ((USHORT_T)uuid->uuid.uuid128[1] << 8));
+    u = uuid->uuid.uuid128;
+    /* Tuya base ends with 07d0 (LE: u[0]=0xd0, u[1]=0x07) */
+    if ((u[0] == 0xd0) && (u[1] == 0x07) && (u[2] == 0x9b) && (u[3] == 0x5f)) {
+        return (USHORT_T)(u[12] | ((USHORT_T)u[13] << 8));
+    }
+    /* Bluetooth SIG base / other 128-bit: 16-bit alias at LE start */
+    return (USHORT_T)(u[0] | ((USHORT_T)u[1] << 8));
 }
 
 OPERATE_RET tkl_ble_gap_adv_rsp_data_set(TKL_BLE_DATA_T CONST *p_adv, TKL_BLE_DATA_T CONST *p_scan_rsp)
 {
+    INT_T ret = 0;
+
     PR_INFO("tkl_ble_gap_adv_rsp_data_set");
-    if ((p_adv == NULL) || (p_scan_rsp == NULL) || (p_adv->p_data == NULL) || (p_scan_rsp->p_data == NULL)) {
-        return OPRT_INVALID_PARM;
+    /*
+     * TKL contract (tkl_bluetooth.h / gateway doc): if p_data == NULL or
+     * length == 0, do not update that field. Both pointers themselves may be
+     * non-NULL with empty payload.
+     */
+    if ((p_adv != NULL) && (p_adv->p_data != NULL) && (p_adv->length > 0)) {
+        ret = tuya_bluez_le_set_adv_data(p_adv->p_data, p_adv->length);
+        if (ret != LE_SUCCESS) {
+            PR_ERR("set adv data failed: %d", ret);
+            return OPRT_COM_ERROR;
+        }
     }
-    tuya_bluez_le_set_adv_data(p_adv->p_data, p_adv->length);
-    tuya_bluez_le_set_scan_rsp_data(p_scan_rsp->p_data, p_scan_rsp->length);
+
+    if ((p_scan_rsp != NULL) && (p_scan_rsp->p_data != NULL) && (p_scan_rsp->length > 0)) {
+        ret = tuya_bluez_le_set_scan_rsp_data(p_scan_rsp->p_data, p_scan_rsp->length);
+        if (ret != LE_SUCCESS) {
+            PR_ERR("set scan rsp data failed: %d", ret);
+            return OPRT_COM_ERROR;
+        }
+    }
+
     return OPRT_OK;
 }
 
@@ -250,11 +343,11 @@ OPERATE_RET tkl_ble_gatts_service_add(TKL_BLE_GATTS_PARAMS_T *p_service)
     for (i = 0; i < svc_num; i++) {
         TKL_BLE_SERVICE_PARAMS_T *p_service_param = &p_service->p_service[i];
 
-        gatt_svc[i].uuid    = p_service_param->svc_uuid.uuid.uuid16;
-        gatt_svc[i].type    = p_service_param->type;
+        gatt_svc[i].uuid = p_service_param->svc_uuid.uuid.uuid16;
+        gatt_svc[i].type = p_service_param->type;
         gatt_svc[i].chr_num = p_service_param->char_num;
+        /* Doc: Characteristic handle; service handle can mirror UUID. */
         p_service_param->handle = p_service_param->svc_uuid.uuid.uuid16;
-        tuya_conn_handle = p_service_param->handle;
 
         PR_DEBUG("service uuid: 0x%04x, char_num: %u", gatt_svc[i].uuid, gatt_svc[i].chr_num);
 
@@ -270,19 +363,30 @@ OPERATE_RET tkl_ble_gatts_service_add(TKL_BLE_GATTS_PARAMS_T *p_service)
             USHORT_T handle = __tkl_uuid_to_handle(&p_service_param->p_char[j].char_uuid);
 
             /*
-             * BlueZ write/notify match uses strtol(uuid_str, 16).
-             * Always publish the 16-bit handle form so callbacks stay consistent.
+             * Publish full Tuya UUID string to BlueZ (App discovers by UUID).
+             * Handle stays 0x0001/0x0002/0x0003 for write/notify matching.
              */
-            snprintf((CHAR_T *)gatt_chr[j].uuid, sizeof(gatt_chr[j].uuid), "%04x", handle);
+            __tkl_uuid_to_str(&p_service_param->p_char[j].char_uuid, (CHAR_T *)gatt_chr[j].uuid,
+                              sizeof(gatt_chr[j].uuid));
             gatt_chr[j].property = p_service_param->p_char[j].property;
             p_service_param->p_char[j].handle = handle;
-            PR_DEBUG("chr[%d] uuid: %s, handle: 0x%04x", j, gatt_chr[j].uuid, handle);
+            PR_INFO("chr[%d] uuid: %s, handle: 0x%04x, props: 0x%02x", j, gatt_chr[j].uuid, handle,
+                    gatt_chr[j].property);
         }
 
         gatt_svc[i].chr = gatt_chr;
     }
 
-    tuya_bluez_le_add_gatt_service(gatt_svc, svc_num);
+    if (tuya_bluez_le_add_gatt_service(gatt_svc, svc_num) != 0) {
+        for (i = 0; i < svc_num; i++) {
+            if (gatt_svc[i].chr) {
+                Free(gatt_svc[i].chr);
+            }
+        }
+        Free(gatt_svc);
+        PR_ERR("tuya_bluez_le_add_gatt_service failed");
+        return OPRT_COM_ERROR;
+    }
 
     for (i = 0; i < svc_num; i++) {
         if (gatt_svc[i].chr) {

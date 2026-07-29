@@ -17,6 +17,7 @@ extern "C" {
 #define LE_OPEN_ERROR -0x10
 #define LE_READ_ERROR -0x11
 #define LE_WRITE_ERROR -0x12
+#define LE_HCI_STATUS_ERROR -0x13
 
 #ifndef NULL
 #ifdef __cplusplus

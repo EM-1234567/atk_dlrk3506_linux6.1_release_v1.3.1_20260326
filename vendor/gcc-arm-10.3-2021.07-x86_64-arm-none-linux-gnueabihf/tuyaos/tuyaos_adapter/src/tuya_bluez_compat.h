@@ -11,9 +11,13 @@
 
 #include "tkl_memory.h"
 
+#include <errno.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <unistd.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,18 +25,50 @@ extern "C" {
 
 /* ---------------------------------------------------------------------------
  * Logging (replaces uni_log.h)
+ * Dual output: stdout (→ wukong_ai.log) and /var/log/ble_diag.log for BLE debug.
  * --------------------------------------------------------------------------- */
+#ifndef BLE_DIAG_LOG_PATH
+#define BLE_DIAG_LOG_PATH "/var/log/ble_diag.log"
+#endif
+
+static inline void __ble_log_write(const char *level, const char *fmt, ...)
+{
+    va_list ap;
+    FILE *fp = NULL;
+    struct timespec ts;
+    long ms = 0;
+
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    ms = (long)(ts.tv_nsec / 1000000L);
+
+    va_start(ap, fmt);
+    printf("[ble][%s] ", level);
+    vprintf(fmt, ap);
+    printf("\n");
+    va_end(ap);
+
+    fp = fopen(BLE_DIAG_LOG_PATH, "a");
+    if (fp != NULL) {
+        va_start(ap, fmt);
+        fprintf(fp, "[%ld.%03ld][ble][%s] ", (long)ts.tv_sec, ms, level);
+        vfprintf(fp, fmt, ap);
+        fprintf(fp, "\n");
+        va_end(ap);
+        fclose(fp);
+    }
+}
+
 #ifndef PR_DEBUG
-#define PR_DEBUG(fmt, ...) do { printf("[ble][D] " fmt "\n", ##__VA_ARGS__); } while (0)
+#define PR_DEBUG(fmt, ...) do { __ble_log_write("D", fmt, ##__VA_ARGS__); } while (0)
 #endif
 #ifndef PR_INFO
-#define PR_INFO(fmt, ...)  do { printf("[ble][I] " fmt "\n", ##__VA_ARGS__); } while (0)
+#define PR_INFO(fmt, ...)  do { __ble_log_write("I", fmt, ##__VA_ARGS__); } while (0)
 #endif
 #ifndef PR_WARN
-#define PR_WARN(fmt, ...)  do { printf("[ble][W] " fmt "\n", ##__VA_ARGS__); } while (0)
+#define PR_WARN(fmt, ...)  do { __ble_log_write("W", fmt, ##__VA_ARGS__); } while (0)
 #endif
 #ifndef PR_ERR
-#define PR_ERR(fmt, ...)   do { printf("[ble][E] " fmt "\n", ##__VA_ARGS__); } while (0)
+#define PR_ERR(fmt, ...)   do { __ble_log_write("E", fmt, ##__VA_ARGS__); } while (0)
 #endif
 
 /* ---------------------------------------------------------------------------
